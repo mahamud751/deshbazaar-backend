@@ -152,9 +152,9 @@ export class VendorService {
   }
 
   // Vendor Dashboard Stats
-  async getDashboardStats(vendorId: number) {
+  async getDashboardStats(userId: number) {
     const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
+      where: { userId },
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
 
@@ -165,17 +165,17 @@ export class VendorService {
       totalRevenue,
       recentOrders,
     ] = await Promise.all([
-      this.prisma.product.count({ where: { vendorId } }),
-      this.prisma.orderItem.count({ where: { vendorId } }),
+      this.prisma.product.count({ where: { vendorId: vendor.id } }),
+      this.prisma.orderItem.count({ where: { vendorId: vendor.id } }),
       this.prisma.orderItem.count({
-        where: { vendorId, itemStatus: 'PENDING' },
+        where: { vendorId: vendor.id, itemStatus: 'PENDING' },
       }),
       this.prisma.orderItem.aggregate({
-        where: { vendorId, itemStatus: 'DELIVERED' },
+        where: { vendorId: vendor.id, itemStatus: 'DELIVERED' },
         _sum: { vendorEarning: true },
       }),
       this.prisma.orderItem.findMany({
-        where: { vendorId },
+        where: { vendorId: vendor.id },
         take: 10,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -198,13 +198,16 @@ export class VendorService {
 
   // Get vendor orders
   async getVendorOrders(
-    vendorId: number,
+    userId: number,
     status?: string,
     page = 1,
     perPage = 20,
   ) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const skip = (page - 1) * perPage;
-    const where: any = { vendorId };
+    const where: any = { vendorId: vendor.id };
     if (status) where.itemStatus = status;
 
     const [data, total] = await Promise.all([
@@ -233,12 +236,15 @@ export class VendorService {
 
   // Update order item status (vendor ships, etc.)
   async updateOrderItemStatus(
-    vendorId: number,
+    userId: number,
     orderItemId: number,
     status: string,
   ) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const item = await this.prisma.orderItem.findFirst({
-      where: { id: orderItemId, vendorId },
+      where: { id: orderItemId, vendorId: vendor.id },
     });
     if (!item) throw new NotFoundException('Order item not found');
 
@@ -249,23 +255,26 @@ export class VendorService {
   }
 
   // Get vendor earnings/payouts
-  async getVendorEarnings(vendorId: number) {
+  async getVendorEarnings(userId: number) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const [totalEarnings, pendingPayouts, completedPayouts, recentPayouts] =
       await Promise.all([
         this.prisma.orderItem.aggregate({
-          where: { vendorId, itemStatus: 'DELIVERED' },
+          where: { vendorId: vendor.id, itemStatus: 'DELIVERED' },
           _sum: { vendorEarning: true },
         }),
         this.prisma.vendorPayout.aggregate({
-          where: { vendorId, status: 'PENDING' },
+          where: { vendorId: vendor.id, status: 'PENDING' },
           _sum: { netAmount: true },
         }),
         this.prisma.vendorPayout.aggregate({
-          where: { vendorId, status: 'COMPLETED' },
+          where: { vendorId: vendor.id, status: 'COMPLETED' },
           _sum: { netAmount: true },
         }),
         this.prisma.vendorPayout.findMany({
-          where: { vendorId },
+          where: { vendorId: vendor.id },
           take: 10,
           orderBy: { createdAt: 'desc' },
         }),
@@ -280,11 +289,14 @@ export class VendorService {
   }
 
   // Get vendor products
-  async getVendorProducts(vendorId: number, page = 1, perPage = 20) {
+  async getVendorProducts(userId: number, page = 1, perPage = 20) {
+    const vendor = await this.prisma.vendor.findUnique({ where: { userId } });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+
     const skip = (page - 1) * perPage;
     const [data, total] = await Promise.all([
       this.prisma.product.findMany({
-        where: { vendorId },
+        where: { vendorId: vendor.id },
         skip,
         take: perPage,
         include: {
@@ -294,7 +306,7 @@ export class VendorService {
         },
         orderBy: { createdAt: 'desc' },
       }),
-      this.prisma.product.count({ where: { vendorId } }),
+      this.prisma.product.count({ where: { vendorId: vendor.id } }),
     ]);
     return { data, total, page, per_page: perPage };
   }
