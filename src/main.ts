@@ -8,7 +8,7 @@ async function bootstrap() {
 
   // Enable CORS for frontend
   app.enableCors({
-    origin: ['http://localhost:4078', 'http://127.0.0.1:4078'],
+    origin: ['http://localhost:4078', 'http://127.0.0.1:4078', 'https://deshbazaar.tech', 'https://www.deshbazaar.tech'],
     credentials: true,
   });
 
