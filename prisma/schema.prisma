@@ -1,0 +1,188 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role     @default(USER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  orders    Order[]
+  wishlists Wishlist[]
+  ratings   Rating[]
+
+  @@map("users")
+}
+
+model Category {
+  id          Int     @id @default(autoincrement())
+  name        String
+  slug        String  @unique
+  description String?
+  image       String?
+  isActive    Boolean @default(true) @map("is_active")
+  sortOrder   Int     @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Product {
+  id              Int      @id @default(autoincrement())
+  name            String
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  oldPrice        Decimal? @map("old_price") @db.Decimal(10, 2)
+  image           String
+  brand           String
+  size            String?
+  color           String?
+  shippedFrom     String   @map("shipped_from")
+  warranty        String
+  deliveryOption  Boolean  @default(false) @map("delivery_option")
+  promotions      String[]
+  specifications  Json?
+  categoryId      Int      @map("category_id")
+  isActive        Boolean  @default(true) @map("is_active")
+  stockQuantity   Int      @default(0) @map("stock_quantity")
+  rating          Decimal? @db.Decimal(2, 1)
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  category     Category       @relation(fields: [categoryId], references: [id])
+  orderItems   OrderItem[]
+  wishlists    Wishlist[]
+  ratings      Rating[]
+  flashSales   FlashSaleProduct[]
+
+  @@map("products")
+}
+
+model FlashSale {
+  id          Int      @id @default(autoincrement())
+  title       String
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  products FlashSaleProduct[]
+
+  @@map("flash_sales")
+}
+
+model FlashSaleProduct {
+  id              Int     @id @default(autoincrement())
+  flashSaleId     Int     @map("flash_sale_id")
+  productId       Int     @map("product_id")
+  discountPrice   Decimal @map("discount_price") @db.Decimal(10, 2)
+  discountPercent Int     @map("discount_percent")
+
+  flashSale FlashSale @relation(fields: [flashSaleId], references: [id], onDelete: Cascade)
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([flashSaleId, productId])
+  @@map("flash_sale_products")
+}
+
+model Order {
+  id              Int      @id @default(autoincrement())
+  userId          Int      @map("user_id")
+  orderNumber     String   @unique @map("order_number")
+  totalAmount     Decimal  @map("total_amount") @db.Decimal(10, 2)
+  deliveryCharge  Decimal  @default(70) @map("delivery_charge") @db.Decimal(10, 2)
+  status          OrderStatus @default(PENDING)
+  shippingAddress String   @map("shipping_address")
+  billingAddress  String   @map("billing_address")
+  paymentMethod   String   @map("payment_method")
+  paymentStatus   String   @default("pending") @map("payment_status")
+  shippedAt       DateTime? @map("shipped_at")
+  deliveredAt     DateTime? @map("delivered_at")
+  notes           String?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  orderItems OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          Int     @id @default(autoincrement())
+  orderId     Int     @map("order_id")
+  productId   Int     @map("product_id")
+  productName String  @map("product_name")
+  price       Decimal @db.Decimal(10, 2)
+  quantity    Int
+  total       Decimal @db.Decimal(10, 2)
+  size        String?
+  color       String?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Wishlist {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  productId Int      @map("product_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@map("wishlists")
+}
+
+model Rating {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  productId     Int      @map("product_id")
+  rating        Decimal  @db.Decimal(2, 1)
+  title         String?
+  comment       String
+  helpfulCount  Int      @default(0) @map("helpful_count")
+  verified      Boolean  @default(false)
+  approved      Boolean  @default(false)
+  images        String[]
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("ratings")
+}
+
+enum Role {
+  USER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
